@@ -1,23 +1,31 @@
 Kernel initialization. Part 1.
 ================================================================================
 
-First steps in the kernel code
+kernelコード内の最初のステップ
 --------------------------------------------------------------------------------
 
-The previous [post](https://0xax.gitbooks.io/linux-insides/content/Booting/linux-bootstrap-6.html) was a last part of the Linux kernel [booting process](https://0xax.gitbooks.io/linux-insides/content/Booting/index.html) chapter and now we are starting to dive into initialization process of the Linux kernel. After the image of the Linux kernel is decompressed and placed in a correct place in memory, it starts to work. All previous parts describe the work of the Linux kernel setup code which does preparation before the first bytes of the Linux kernel code will be executed. From now we are in the kernel and all parts of this chapter will be devoted to the initialization process of the kernel before it will launch process with [pid](https://en.wikipedia.org/wiki/Process_identifier) `1`. There are many things to do before the kernel will start first `init` process. Hope we will see all of the preparations before kernel will start in this big chapter. We will start from the kernel entry point, which is located in the [arch/x86/kernel/head_64.S](https://github.com/torvalds/linux/blob/master/arch/x86/kernel/head_64.S) and will move further and further. We will see first preparations like early page tables initialization, switch to a new descriptor in kernel space and many many more, before we will see the `start_kernel` function from the [init/main.c](https://github.com/torvalds/linux/blob/master/init/main.c) will be called.
+[前回](https://0xax.gitbooks.io/linux-insides/content/Booting/linux-bootstrap-6.html)は、Linux kernelの[ブート処理](https://0xax.gitbooks.io/linux-insides/content/Booting/index.html)の章の最後のパートでした。次はLinux kernelの初期化処理に潜り込みます。
+まず、Linux Kernelのイメージが展開され、メモリの正しい位置に配置されると動作を開始します。
+これまでの全てのパートは、Linux kernelのコードの最初のバイトが実行される前に準備を行っている、セットアップコードの動きについて説明しました。
+これからkernelの中を見ていきますが、この章の全てのパートは、[pid](https://en.wikipedia.org/wiki/Process_identifier) `1`のプロセスを立ち上げる前のkernelの初期化処理に専念しています。
+kernelが`init`を立ち上げる前にすべきことが多くあります。そのため、この大きな章でkernelをはじめる前に、全ての準備を確認しておくことが望ましい。?
 
-In the last [part](https://0xax.gitbooks.io/linux-insides/content/Booting/linux-bootstrap-6.html) of the previous [chapter](https://0xax.gitbooks.io/linux-insides/content/Booting/index.html) we stopped at the jmp instruction from the [arch/x86/boot/compressed/head_64.S](https://github.com/torvalds/linux/blob/master/arch/x86/boot/compressed/head_64.S) assembly source code file:
+[arch/x86/kernel/head_64.S](https://github.com/torvalds/linux/blob/master/arch/x86/kernel/head_64.S)に位置するkernelのエントリポイントから開始し、さらに先へ進んでいきます。
+[init/main.c](https://github.com/torvalds/linux/blob/master/init/main.c)内から呼ばれる`start_kernel`関数を見る前に、早期のページテーブル初期化や、新しいkernel空間のディスクリプタへの切り替え等の、その他にもたくさんある最初の準備処理について見ていきます。
+[前の章](https://0xax.gitbooks.io/linux-insides/content/Booting/index.html) の[最後のパート](https://0xax.gitbooks.io/linux-insides/content/Booting/linux-bootstrap-6.html)では、[arch/x86/boot/compressed/head_64.S](https://github.com/torvalds/linux/blob/master/arch/x86/boot/compressed/head_64.S)のアセンブラソースコードに記載されているjmp命令で止まっていました。
+
 
 ```assembly
 jmp	*%rax
 ```
+この時点では`rax`レジスタは、[arch/x86/boot/compressed/misc.c](https://github.com/torvalds/linux/blob/master/arch/x86/boot/compressed/misc.c)に定義されている`decompress_kernel`関数により取得した、Linux kernelのエントリポイントのアドレスを保持しています。
+そのため、kernelのセットアップコードの最後の命令はkernelのエントリポイントへのjumpとなります。Linux kernelのエントリポイントがどこに定義されているかは既に説明しているので、この後Linux kernelが何をするかを学び始めることができます。
 
-At this moment the `rax` register contains address of the Linux kernel entry point which was obtained as a result of the call of the `decompress_kernel` function from the [arch/x86/boot/compressed/misc.c](https://github.com/torvalds/linux/blob/master/arch/x86/boot/compressed/misc.c) source code file. So, our last instruction in the kernel setup code is a jump on the kernel entry point. We already know where the entry point of the Linux kernel is defined, so we are able to start to learn what Linux kernel does after the start.
-
-First steps in the kernel
+kernelの最初のステップ
 --------------------------------------------------------------------------------
 
-Okay, we got the address of the decompressed kernel image from the `decompress_kernel` function into `rax` register and just jumped there. As we already know the entry point of the decompressed kernel image starts in the [arch/x86/kernel/head_64.S](https://github.com/torvalds/linux/blob/master/arch/x86/kernel/head_64.S) assembly source code file and at the beginning of it, we can see following definitions:
+さて、解凍済みのkernelイメージのアドレスを`decompress_kernel`関数により`rax`レジスタへ取得し、そのアドレスへジャンプしました。
+解凍済みkernelイメージのエントリポイントは、[arch/x86/kernel/head_64.S](https://github.com/torvalds/linux/blob/master/arch/x86/kernel/head_64.S)のアセンブリソースコードファイルの先頭の、以下定義から開始されます。
 
 ```assembly
     .text
@@ -29,6 +37,7 @@ startup_64:
 	...
 	...
 ```
+
 
 We can see definition of the `startup_64` routine that is defined in the `__HEAD` section, which is just a macro which expands to the definition of executable `.head.text` section:
 
