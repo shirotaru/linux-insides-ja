@@ -1,7 +1,7 @@
-# Theory
+# 理論
 
-This chapter describes various theoretical concepts and concepts which are not directly related to practice but useful to know.
+この章では、様々な理論的概念と、実践には直接関係しないが知っておくと便利な概念について説明します。
 
-* [Paging](linux-theory-1.md)
-* [Elf64 format](linux-theory-2.md)
-* [Inline assembly](linux-theory-3.md)
+* [ページング](linux-theory-1.md)
+* [Elf64 フォーマット](linux-theory-2.md)
+* [インラインアセンブラ](linux-theory-3.md)
